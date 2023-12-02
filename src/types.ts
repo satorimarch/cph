@@ -1,9 +1,13 @@
+/* eslint no-var: off */
+import TelemetryReporter from '@vscode/extension-telemetry';
+import * as vscode from 'vscode';
+
 /** Valid name for a VS Code preference section for the extension */
 export type prefSection =
     | 'general.saveLocation'
     | 'general.defaultLanguage'
     | 'general.timeOut'
-    | 'general.zeroExitCodeIsWarning'
+    | 'general.hideStderrorWhenCompiledOK'
     | 'general.ignoreSTDERROR'
     | 'general.firstTime'
     | 'general.useShortCodeForcesName'
@@ -23,6 +27,9 @@ export type prefSection =
     | 'language.java.Args'
     | 'language.java.SubmissionCompiler'
     | 'language.java.Command'
+    | 'language.js.Args'
+    | 'language.js.SubmissionCompiler'
+    | 'language.js.Command'
     | 'language.python.Args'
     | 'language.python.SubmissionCompiler'
     | 'language.python.Command'
@@ -38,7 +45,7 @@ export type Language = {
     skipCompile: boolean;
 };
 
-export type LangNames = 'python' | 'c' | 'cpp' | 'rust' | 'java' | 'go';
+export type LangNames = 'python' | 'c' | 'cpp' | 'rust' | 'java' | 'js' | 'go';
 
 export type TestCase = {
     input: string;
@@ -201,3 +208,8 @@ export type CphSubmitResponse = {
 export type WebViewpersistenceState = {
     ignoreSpaceWarning: boolean;
 };
+
+declare global {
+    var reporter: TelemetryReporter;
+    var context: vscode.ExtensionContext;
+}

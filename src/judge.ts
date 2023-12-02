@@ -1,5 +1,4 @@
 import { TestCase, Problem, Case } from './types';
-import { EOL } from 'os';
 /**
  * Judge whether the testcase stdout is correct
  *
@@ -10,8 +9,13 @@ export const isResultCorrect = (
     testCase: TestCase,
     stdout: string,
 ): boolean => {
-    const expectedLines = testCase.output.trim().split('\n');
-    const resultLines = stdout.trim().split(EOL);
+    // convert crlf to lf
+    const expected = testCase.output.replace(/\r\n/g, '\n');
+    const result = stdout.replace(/\r\n/g, '\n');
+
+    const expectedLines = expected.trim().split('\n');
+    const resultLines = result.trim().split('\n');
+    console.log('res', resultLines);
     if (expectedLines.length !== resultLines.length) {
         console.log('Failed precheck', expectedLines, resultLines);
         return false;

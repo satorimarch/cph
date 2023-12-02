@@ -12,15 +12,18 @@ import {
     getPythonArgsPref,
     getRustArgsPref,
     getJavaArgsPref,
+    getJsArgsPref,
     getGoArgsPref,
     getCCommand,
     getCppCommand,
     getPythonCommand,
     getRustCommand,
     getJavaCommand,
+    getJsCommand,
     getGoCommand,
 } from './preferences';
 import { Language, Problem } from './types';
+import telmetry from './telmetry';
 
 const oc = vscode.window.createOutputChannel('cph');
 
@@ -81,6 +84,14 @@ export const getLanguage = (srcPath: string): Language => {
                 skipCompile: false,
             };
         }
+        case 'js': {
+            return {
+                name: langName,
+                args: [...getJsArgsPref()],
+                compiler: getJsCommand(),
+                skipCompile: true,
+            };
+        }
         case 'go': {
             return {
                 name: langName,
@@ -139,6 +150,7 @@ export const checkUnsupported = (srcPath: string): boolean => {
 
 /** Deletes the .prob problem file for a given source code path. */
 export const deleteProblemFile = (srcPath: string) => {
+    globalThis.reporter.sendTelemetryEvent(telmetry.DELETE_ALL_TESTCASES);
     const probPath = getProbSaveLocation(srcPath);
     try {
         if (platform() === 'win32') {

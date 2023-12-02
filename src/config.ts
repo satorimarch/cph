@@ -4,6 +4,7 @@
  */
 
 export default {
+    telemetryKey: 'e57deb32-2bd3-4c02-89a5-d1f1ed0bc0d6',
     port: 27121, // companion listener server
     timeout: 10000, // for a testcase run
     extensions: {
@@ -12,6 +13,7 @@ export default {
         python: 'py',
         rust: 'rs',
         java: 'java',
+        js: 'js',
         go: 'go',
     },
     compilers: {
@@ -20,6 +22,7 @@ export default {
         python: 'python',
         rust: 'rustc',
         java: 'javac',
+        js: 'node',
         go: 'go',
     },
     compilerToId: {
@@ -33,14 +36,16 @@ export default {
         'Clang++17 Diagnostics': 52,
         'Java 11.0.6': 60,
         'Java 1.8.0_241': 36,
-        'PyPy 3.6 (7.2.0)': 41,
-        'Python 3.7.2': 31,
-        'PyPy 2.7 (7.2.0)': 40,
-        'Python 2.7.15': 7,
+        'Node.js 15.8.0 (64bit)': 55,
+        'PyPy 3.6.9 (7.3.0)': 41,
+        'PyPy 3.9.10 (7.3.9, 64bit)': 70,
+        'Python 3.8.10': 31,
+        'PyPy 2.7.13 (7.3.0)': 40,
+        'Python 2.7.18': 7,
         'GNU GCC C11 5.1.0': 43,
         'Go 1.19.5': 32,
         'Rust 1.66.0 (2021)': 75,
     },
-    supportedExtensions: ['py', 'cpp', 'rs', 'c', 'java', 'go'],
-    skipCompile: ['py'],
+    supportedExtensions: ['py', 'cpp', 'rs', 'c', 'java', 'js', 'go'],
+    skipCompile: ['py', 'js'],
 };

@@ -6,6 +6,7 @@ import { getTimeOutPref } from './preferences';
 import * as vscode from 'vscode';
 import path from 'path';
 import { onlineJudgeEnv } from './compiler';
+import telmetry from './telmetry';
 
 const runningBinaries: ChildProcessWithoutNullStreams[] = [];
 
@@ -32,6 +33,7 @@ export const runTestCase = (
     const spawnOpts = {
         timeout: config.timeout,
         env: {
+            ...global.process.env,
             DEBUG: 'true',
             CPH: 'true',
         },
@@ -54,6 +56,14 @@ export const runTestCase = (
         case 'python': {
             process = spawn(
                 language.compiler, // 'python3' or 'python' TBD
+                [binPath, ...language.args],
+                spawnOpts,
+            );
+            break;
+        }
+        case 'js': {
+            process = spawn(
+                language.compiler,
                 [binPath, ...language.args],
                 spawnOpts,
             );
@@ -151,6 +161,7 @@ export const deleteBinary = (language: Language, binPath: string) => {
 
 /** Kill all running binaries. Usually, only one should be running at a time. */
 export const killRunning = () => {
+    globalThis.reporter.sendTelemetryEvent(telmetry.KILL_RUNNING);
     console.log('Killling binaries');
     runningBinaries.forEach((process) => process.kill());
 };

@@ -32,8 +32,8 @@ export const getSaveLocationPref = (): string => {
     return pref;
 };
 
-export const getZeroExitCodeIsWarningPref = (): string =>
-    getPreference('general.zeroExitCodeIsWarning');
+export const getHideStderrorWhenCompiledOK = (): boolean =>
+    getPreference('general.hideStderrorWhenCompiledOK');
 
 export const getIgnoreSTDERRORPref = (): string =>
     getPreference('general.ignoreSTDERROR');
@@ -58,6 +58,9 @@ export const getRustArgsPref = (): string[] =>
 
 export const getJavaArgsPref = (): string[] =>
     getPreference('language.java.Args').split(' ') || [];
+
+export const getJsArgsPref = (): string[] =>
+    getPreference('language.js.Args').split(' ') || [];
 
 export const getGoArgsPref = (): string[] =>
     getPreference('language.go.Args').split(' ') || [];
@@ -97,6 +100,8 @@ export const getRustCommand = (): string =>
     getPreference('language.rust.Command') || 'rustc';
 export const getJavaCommand = (): string =>
     getPreference('language.java.Command') || 'javac';
+export const getJsCommand = (): string =>
+    getPreference('language.js.Command') || 'node';
 export const getGoCommand = (): string =>
     getPreference('language.go.Command') || 'go';
 
@@ -115,6 +120,11 @@ export const getLanguageId = (srcPath: string): number => {
 
         case '.java': {
             compiler = getPreference('language.java.SubmissionCompiler');
+            break;
+        }
+
+        case '.js': {
+            compiler = getPreference('language.js.SubmissionCompiler');
             break;
         }
 
