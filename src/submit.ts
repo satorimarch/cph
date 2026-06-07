@@ -2,14 +2,19 @@ import { getProblem } from './parser';
 import * as vscode from 'vscode';
 import { storeSubmitProblem, submitKattisProblem } from './companion';
 import { getJudgeViewProvider } from './extension';
+import { isCodeforcesUrl } from './utils';
 import telmetry from './telmetry';
+import localize from './i18n';
 
 export const submitToKattis = async () => {
     globalThis.reporter.sendTelemetryEvent(telmetry.SUBMIT_TO_KATTIS);
     const srcPath = vscode.window.activeTextEditor?.document.fileName;
     if (!srcPath) {
         vscode.window.showErrorMessage(
-            'Active editor is not supported for submission',
+            localize(
+                'cph.submit.notSupported',
+                'Active editor is not supported for submission',
+            ),
         );
         return;
     }
@@ -21,7 +26,9 @@ export const submitToKattis = async () => {
     const problem = getProblem(srcPath);
 
     if (!problem) {
-        vscode.window.showErrorMessage('Failed to parse current code.');
+        vscode.window.showErrorMessage(
+            localize('cph.submit.parseFailed', 'Failed to parse current code.'),
+        );
         return;
     }
 
@@ -29,13 +36,17 @@ export const submitToKattis = async () => {
     try {
         url = new URL(problem.url);
     } catch (err) {
-        console.error(err);
-        vscode.window.showErrorMessage('Not a kattis problem.');
+        globalThis.logger.error(err);
+        vscode.window.showErrorMessage(
+            localize('cph.submit.notKattis', 'Not a kattis problem.'),
+        );
         return;
     }
 
     if (url.hostname !== 'open.kattis.com') {
-        vscode.window.showErrorMessage('Not a kattis problem.');
+        vscode.window.showErrorMessage(
+            localize('cph.submit.notKattis', 'Not a kattis problem.'),
+        );
         return;
     }
 
@@ -50,7 +61,10 @@ export const submitToCodeForces = async () => {
 
     if (!srcPath) {
         vscode.window.showErrorMessage(
-            'Active editor is not supported for submission',
+            localize(
+                'cph.submit.notSupported',
+                'Active editor is not supported for submission',
+            ),
         );
         return;
     }
@@ -62,7 +76,9 @@ export const submitToCodeForces = async () => {
     const problem = getProblem(srcPath);
 
     if (!problem) {
-        vscode.window.showErrorMessage('Failed to parse current code.');
+        vscode.window.showErrorMessage(
+            localize('cph.submit.parseFailed', 'Failed to parse current code.'),
+        );
         return;
     }
 
@@ -70,13 +86,17 @@ export const submitToCodeForces = async () => {
     try {
         url = new URL(problem.url);
     } catch (err) {
-        console.error(err);
-        vscode.window.showErrorMessage('Not a codeforces problem.');
+        globalThis.logger.error(err);
+        vscode.window.showErrorMessage(
+            localize('cph.submit.notCodeforces', 'Not a codeforces problem.'),
+        );
         return;
     }
 
-    if (url.hostname !== 'codeforces.com') {
-        vscode.window.showErrorMessage('Not a codeforces problem.');
+    if (!isCodeforcesUrl(url)) {
+        vscode.window.showErrorMessage(
+            localize('cph.submit.notCodeforces', 'Not a codeforces problem.'),
+        );
         return;
     }
 
@@ -88,16 +108,20 @@ export const submitToCodeForces = async () => {
 
 /** Get the problem name ( like 144C ) for a given Codeforces URL string. */
 export const getProblemName = (problemUrl: string): string => {
-    const parts = problemUrl.split('/');
-    let problemName: string;
+    const regexPatterns = [
+        /\/contest\/(\d+)\/problem\/(\w+)/,
+        /\/gym\/(\d+)\/problem\/(\w+)/,
+        /\/problemset\/problem\/(\d+)\/(\w+)/,
+        /\/problemset\/gymProblem\/(\d+)\/(\w+)/,
+        /\/problemsets\/acmsguru\/problem\/(\d+)\/(\w+)/,
+    ];
 
-    if (parts.find((x) => x == 'contest')) {
-        // Url is like https://codeforces.com/contest/1398/problem/C
-        problemName = parts[parts.length - 3] + parts[parts.length - 1];
-    } else {
-        // Url is like https://codeforces.com/problemset/problem/1344/F
-        problemName = parts[parts.length - 2] + parts[parts.length - 1];
+    for (const regex of regexPatterns) {
+        const match = problemUrl.match(regex);
+        if (match) {
+            return match[1] + match[2];
+        }
     }
 
-    return problemName;
+    return '';
 };

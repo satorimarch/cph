@@ -1,3 +1,30 @@
+/************************************************************************************/
+globalThis.storedLogs = '';
+function customLogger(
+    originalMethod: (...args: any[]) => void,
+    ...args: any[]
+) {
+    originalMethod(...args);
+
+    globalThis.storedLogs += new Date().toISOString() + ' ';
+    globalThis.storedLogs +=
+        args
+            .map((arg) => (typeof arg === 'object' ? JSON.stringify(arg) : arg))
+            .join(' ') + '\n';
+}
+
+globalThis.logger = {};
+globalThis.logger.log = (...args: any[]) => customLogger(console.log, ...args);
+globalThis.logger.error = (...args: any[]) =>
+    customLogger(console.error, ...args);
+globalThis.logger.warn = (...args: any[]) =>
+    customLogger(console.warn, ...args);
+globalThis.logger.info = (...args: any[]) =>
+    customLogger(console.info, ...args);
+globalThis.logger.debug = (...args: any[]) =>
+    customLogger(console.debug, ...args);
+/************************************************************************************/
+
 import * as vscode from 'vscode';
 import { setupCompanionServer } from './companion';
 import runTestCases from './runTestCases';
@@ -8,10 +35,15 @@ import {
 } from './webview/editorChange';
 import { submitToCodeForces, submitToKattis } from './submit';
 import JudgeViewProvider from './webview/JudgeView';
-import { getRetainWebviewContextPref } from './preferences';
+import {
+    getRetainWebviewContextPref,
+    getDefaultOnlineJudge,
+} from './preferences';
 import TelemetryReporter from '@vscode/extension-telemetry';
 import config from './config';
-import telmetry from './telmetry';
+import localize from './i18n';
+import { setOnlineJudgeEnv, compileFile } from './compiler';
+import { checkUnsupported } from './utils';
 
 let judgeViewProvider: JudgeViewProvider;
 
@@ -20,7 +52,7 @@ export const getJudgeViewProvider = () => {
 };
 
 const registerCommands = (context: vscode.ExtensionContext) => {
-    console.log('Registering commands');
+    globalThis.logger.log('Registering commands');
     const disposable = vscode.commands.registerCommand(
         'cph.runTestCases',
         () => {
@@ -48,6 +80,23 @@ const registerCommands = (context: vscode.ExtensionContext) => {
         },
     );
 
+    const disposable5 = vscode.commands.registerCommand(
+        'cph.compileWithoutRunning',
+        async () => {
+            globalThis.logger.log('Running command "compileWithoutRunning"');
+            const editor = vscode.window.activeTextEditor;
+            if (editor === undefined) {
+                checkUnsupported('');
+                return;
+            }
+            const srcPath = editor.document.fileName;
+            if (checkUnsupported(srcPath)) {
+                return;
+            }
+            await compileFile(srcPath);
+        },
+    );
+
     judgeViewProvider = new JudgeViewProvider(context.extensionUri);
 
     const webviewView = vscode.window.registerWebviewViewProvider(
@@ -65,24 +114,30 @@ const registerCommands = (context: vscode.ExtensionContext) => {
     context.subscriptions.push(disposable2);
     context.subscriptions.push(disposable3);
     context.subscriptions.push(disposable4);
+    context.subscriptions.push(disposable5);
     globalThis.reporter = new TelemetryReporter(config.telemetryKey);
     context.subscriptions.push(globalThis.reporter);
-
-    globalThis.reporter.sendTelemetryEvent(telmetry.EXTENSION_ACTIVATED);
 };
 
 // This method is called when the extension is activated
 export function activate(context: vscode.ExtensionContext) {
-    console.log('cph: activate() execution started');
+    globalThis.logger.log('cph: activate() execution started');
     globalThis.context = context;
+
+    downloadRemoteMessage();
 
     const statusBarItem = vscode.window.createStatusBarItem(
         vscode.StatusBarAlignment.Left,
         1000,
     );
-    statusBarItem.text = ' $(run-all)  Run Testcases';
-    statusBarItem.tooltip =
-        'Competitive Programming Helper - Run all testcases or create if none exist.';
+    statusBarItem.text = localize(
+        'cph.extension.statusBarText',
+        ' $(run-all)  Run Testcases',
+    );
+    statusBarItem.tooltip = localize(
+        'cph.extension.statusBarTooltip',
+        'Competitive Programming Helper - Run all testcases or create if none exist.',
+    );
     statusBarItem.show();
     statusBarItem.command = 'cph.runTestCases';
 
@@ -98,6 +153,17 @@ export function activate(context: vscode.ExtensionContext) {
         editorChanged(e);
     });
 
+    vscode.workspace.onDidChangeConfiguration((e) => {
+        if (e.affectsConfiguration('cph.general.defaultOnlineJudge')) {
+            const newValue = getDefaultOnlineJudge();
+            setOnlineJudgeEnv(newValue);
+            getJudgeViewProvider().extensionToJudgeViewMessage({
+                command: 'update-online-judge-env',
+                value: newValue,
+            });
+        }
+    });
+
     vscode.window.onDidChangeVisibleTextEditors((editors) => {
         if (editors.length === 0) {
             getJudgeViewProvider().extensionToJudgeViewMessage({
@@ -108,4 +174,23 @@ export function activate(context: vscode.ExtensionContext) {
     });
 
     return;
+}
+
+async function downloadRemoteMessage() {
+    try {
+        globalThis.logger.log('Fetching remote message');
+        globalThis.remoteMessage = await (
+            await fetch(config.remoteMessageUrl)
+        ).text();
+        getJudgeViewProvider().extensionToJudgeViewMessage({
+            command: 'remote-message',
+            message: globalThis.remoteMessage,
+        });
+        globalThis.logger.log(
+            'Remote message fetched',
+            globalThis.remoteMessage,
+        );
+    } catch (e) {
+        globalThis.logger.error('Error fetching remote message', e);
+    }
 }

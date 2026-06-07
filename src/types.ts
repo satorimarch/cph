@@ -6,18 +6,28 @@ import * as vscode from 'vscode';
 export type prefSection =
     | 'general.saveLocation'
     | 'general.defaultLanguage'
+    | 'general.defaultOnlineJudge'
     | 'general.timeOut'
     | 'general.hideStderrorWhenCompiledOK'
     | 'general.ignoreSTDERROR'
     | 'general.firstTime'
+    | 'general.includeProblemIndex'
+    | 'general.wordRegex'
     | 'general.useShortCodeForcesName'
+    | 'general.useShortLuoguName'
+    | 'general.useShortAtCoderName'
     | 'general.menuChoices'
     | 'language.c.Args'
     | 'language.c.SubmissionCompiler'
     | 'language.c.Command'
+    | 'language.c.OutputArg'
     | 'language.cpp.Args'
     | 'language.cpp.SubmissionCompiler'
     | 'language.cpp.Command'
+    | 'language.cpp.OutputArg'
+    | 'language.csharp.Args'
+    | 'language.csharp.SubmissionCompiler'
+    | 'language.csharp.Command'
     | 'language.go.Args'
     | 'language.go.SubmissionCompiler'
     | 'language.go.Command'
@@ -33,10 +43,23 @@ export type prefSection =
     | 'language.python.Args'
     | 'language.python.SubmissionCompiler'
     | 'language.python.Command'
+    | 'language.ruby.Args'
+    | 'language.ruby.SubmissionCompiler'
+    | 'language.ruby.Command'
+    | 'language.haskell.Args'
+    | 'language.haskell.SubmissionCompiler'
+    | 'language.haskell.Command'
+    | 'language.cangjie.Args'
+    // | 'language.cangjie.SubmissionCompiler'  // Not support now
+    | 'language.cangjie.Command'
     | 'general.retainWebviewContext'
     | 'general.autoShowJudge'
     | 'general.defaultLanguageTemplateFileLocation'
-    | 'general.saveProblemToActiveFile';
+    | 'general.saveProblemToActiveFile'
+    | 'general.doTemplateFileVariableReplacement'
+    | 'general.remoteServerAddress'
+    | 'general.showLiveUserCount'
+    | 'general.hideOutputDifference';
 
 export type Language = {
     name: LangNames;
@@ -45,7 +68,20 @@ export type Language = {
     skipCompile: boolean;
 };
 
-export type LangNames = 'python' | 'c' | 'cpp' | 'rust' | 'java' | 'js' | 'go';
+export type LangNames =
+    | 'python'
+    | 'ruby'
+    | 'c'
+    | 'cpp'
+    | 'cc'
+    | 'cxx'
+    | 'rust'
+    | 'java'
+    | 'js'
+    | 'go'
+    | 'hs'
+    | 'csharp'
+    | 'cangjie';
 
 export type TestCase = {
     input: string;
@@ -63,6 +99,7 @@ export type Problem = {
     tests: TestCase[];
     srcPath: string;
     local?: boolean;
+    customCheckerPath?: string;
 };
 
 export type Case = {
@@ -80,9 +117,34 @@ export type Run = {
     timeOut: boolean;
 };
 
+export type CustomCheckerRun = {
+    command: string;
+} & Run;
+
+export type DiffLine = {
+    lineNumber: number;
+    expected: string | null;
+    received: string | null;
+    type: 'match' | 'changed' | 'missing' | 'extra';
+};
+
+export type TokenDiff = {
+    token: string;
+    status: 'match' | 'extra' | 'missing';
+};
+
+export type DiffResult = {
+    isMatch: boolean;
+    lines: DiffLine[];
+    summary: string;
+    tokenDiff: TokenDiff[];
+};
+
 export type RunResult = {
     pass: boolean | null;
     id: number;
+    diff?: DiffResult;
+    checkerRun?: CustomCheckerRun;
 } & Run;
 
 export type WebviewMessageCommon = {
@@ -100,7 +162,7 @@ export type RunAllCommand = {
 
 export type OnlineJudgeEnv = {
     command: 'online-judge-env';
-    value: boolean;
+    value: string;
 };
 
 export type KillRunningCommand = {
@@ -131,6 +193,29 @@ export type CreateLocalProblem = {
     command: 'create-local-problem';
 };
 
+export type OpenUrl = {
+    command: 'url';
+    url: string;
+};
+
+export type GetExtLogs = {
+    command: 'get-ext-logs';
+};
+
+export type SetHideOutputDiff = {
+    command: 'set-hide-output-diff';
+    value: boolean;
+};
+
+export type OpenSettings = {
+    command: 'open-settings';
+};
+
+export type OpenFile = {
+    command: 'open-file';
+    path: string;
+};
+
 export type WebviewToVSEvent =
     | RunAllCommand
     | GetInitialProblem
@@ -141,10 +226,20 @@ export type WebviewToVSEvent =
     | DeleteTcsCommand
     | SubmitCf
     | OnlineJudgeEnv
-    | SubmitKattis;
+    | SubmitKattis
+    | OpenUrl
+    | GetExtLogs
+    | SetHideOutputDiff
+    | OpenSettings
+    | OpenFile;
 
 export type RunningCommand = {
     command: 'running';
+    id: number;
+} & WebviewMessageCommon;
+
+export type CheckingCommand = {
+    command: 'checking';
     id: number;
 } & WebviewMessageCommon;
 
@@ -180,18 +275,38 @@ export type SubmitFinishedCommand = {
 export type NewProblemCommand = {
     command: 'new-problem';
     problem: Problem | undefined;
+    onlineJudgeEnv?: boolean;
+};
+
+export type RemoteMessageCommand = {
+    command: 'remote-message';
+    message: string;
+};
+
+export type ExtLogsCommand = {
+    command: 'ext-logs';
+    logs: string;
+};
+
+export type UpdateOnlineJudgeEnvCommand = {
+    command: 'update-online-judge-env';
+    value: boolean;
 };
 
 export type VSToWebViewMessage =
     | ResultCommand
     | RunningCommand
+    | CheckingCommand
     | RunAllInWebViewCommand
     | CompilingStartCommand
     | CompilingStopCommand
     | WaitingForSubmitCommand
     | SubmitFinishedCommand
     | NotRunningCommand
-    | NewProblemCommand;
+    | RemoteMessageCommand
+    | NewProblemCommand
+    | ExtLogsCommand
+    | UpdateOnlineJudgeEnvCommand;
 
 export type CphEmptyResponse = {
     empty: true;
@@ -206,10 +321,19 @@ export type CphSubmitResponse = {
 };
 
 export type WebViewpersistenceState = {
-    ignoreSpaceWarning: boolean;
+    dialogCloseDate: number;
+    feedbackDialogCloseDate?: number;
+    hasSeenFeedbackTooltip?: boolean;
+    catCompanionEnabled?: boolean;
+    totalLoads?: number;
+    hasSeenCompanionTooltip?: boolean;
+    rateDialogCloseDate?: number;
 };
 
 declare global {
     var reporter: TelemetryReporter;
     var context: vscode.ExtensionContext;
+    var remoteMessage: string | undefined;
+    var storedLogs: string;
+    var logger: any;
 }

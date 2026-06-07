@@ -2,20 +2,26 @@ import { Problem, RunResult } from '../types';
 import { getLanguage } from '../utils';
 import { getBinSaveLocation, compileFile } from '../compiler';
 import { saveProblem } from '../parser';
-import { runTestCase, deleteBinary } from '../executions';
+import { runTestCase, deleteBinary, runCustomChecker } from '../executions';
 import { isResultCorrect } from '../judge';
+import { diffOutput } from '../utils/diffOutput';
 import * as vscode from 'vscode';
 import { getJudgeViewProvider } from '../extension';
 import { getIgnoreSTDERRORPref } from '../preferences';
 import telmetry from '../telmetry';
+import * as fs from 'fs';
+import localize from '../i18n';
 
 export const runSingleAndSave = async (
     problem: Problem,
     id: number,
     skipCompile = false,
-) => {
-    globalThis.reporter.sendTelemetryEvent(telmetry.RUN_TESTCASE);
-    console.log('Run and save started', problem, id);
+    skipTelemetry = false,
+): Promise<RunResult | undefined> => {
+    if (!skipTelemetry) {
+        globalThis.reporter.sendTelemetryEvent(telmetry.RUN_TESTCASE);
+    }
+    globalThis.logger.log('Run and save started', problem, id);
     const srcPath = problem.srcPath;
     const language = getLanguage(srcPath);
     const binPath = getBinSaveLocation(srcPath);
@@ -27,7 +33,7 @@ export const runSingleAndSave = async (
     await textEditor.save();
 
     if (!testCase) {
-        console.error('Invalid id', id, problem);
+        globalThis.logger.error('Invalid id', id, problem);
         return;
     }
 
@@ -35,7 +41,7 @@ export const runSingleAndSave = async (
 
     if (!skipCompile) {
         if (!(await compileFile(srcPath))) {
-            console.error('Failed to compile', problem, id);
+            globalThis.logger.error('Failed to compile', problem, id);
             return;
         }
     }
@@ -52,16 +58,71 @@ export const runSingleAndSave = async (
         (run.code !== null && run.code !== 0) ||
         run.signal !== null ||
         stderrorFailure;
+
+    let pass: boolean | null = null;
+    let checkerRun: any = undefined;
+
+    if (run.signal === 'SIGTERM' || run.signal === 'SIGKILL') {
+        pass = false;
+    } else if (didError) {
+        pass = false;
+    } else if (
+        problem.customCheckerPath &&
+        problem.customCheckerPath.trim() !== ''
+    ) {
+        const checkerPath = problem.customCheckerPath.trim();
+        if (fs.existsSync(checkerPath)) {
+            getJudgeViewProvider().extensionToJudgeViewMessage({
+                command: 'checking',
+                id,
+                problem,
+            });
+            checkerRun = await runCustomChecker(
+                checkerPath,
+                testCase.input,
+                run.stdout,
+            );
+            pass = checkerRun.code === 0;
+            if (
+                checkerRun.signal === 'SIGTERM' ||
+                checkerRun.signal === 'SIGKILL'
+            ) {
+                run.signal = checkerRun.signal; // Propagate signal to main run object so processRunAll can stop
+            }
+        } else {
+            vscode.window.showErrorMessage(
+                localize(
+                    'cph.processRunSingle.invalidChecker',
+                    "Custom checker script not found at '{0}'",
+                    checkerPath,
+                ),
+            );
+            pass = false;
+        }
+    } else {
+        pass = isResultCorrect(testCase, run.stdout);
+    }
+
     const result: RunResult = {
         ...run,
-        pass: didError ? false : isResultCorrect(testCase, run.stdout),
+        pass,
+        checkerRun,
+        diff:
+            didError ||
+            (problem.customCheckerPath &&
+                problem.customCheckerPath.trim() !== '') ||
+            run.signal === 'SIGTERM' ||
+            run.signal === 'SIGKILL'
+                ? undefined
+                : diffOutput(testCase.output, run.stdout),
         id,
     };
 
-    console.log('Testcase judging complete. Result:', result);
+    globalThis.logger.log('Testcase judging complete. Result:', result);
     getJudgeViewProvider().extensionToJudgeViewMessage({
         command: 'run-single-result',
         result,
         problem,
     });
+    return result;
 };
